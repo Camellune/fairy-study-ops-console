@@ -10,4 +10,4 @@ assets/skin/
 assets/bangboo/
 
 # 本地发布产物
-发布/
+# 注：本仓库自身即为发布目录，无需此规则
