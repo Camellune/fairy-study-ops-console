@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Fairy · 考研学习作战台</title>
+<link rel="icon" type="image/png" href="/*__FAVICON__*/">
+<!-- 本工作台基于 arknights-plan-console 改造，通过 WorkBuddy「资料库」skill 搭建、存储和部署 -->
+<style>
+/*__CSS__*/
+
+/* 说明：新增组件样式（今日要处理 / 导入区 / 导出组 / 移动端适配）已统一收敛到
+   _build/zzz-theme.css，避免同一组件存在两份浅色/深色定义互相覆盖。 */
+</style>
+</head>
+<body>
+
+<!-- 背景舞台：照片 / 遮罩 / 网点三层，由「外观」抽屉控制（详见 zzz-theme.css） -->
+<div class="bg-stage" id="bgStage" aria-hidden="true">
+  <div class="bg-img"></div>
+  <div class="bg-shade"></div>
+  <div class="bg-dots"></div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="/*__LOGO__*/" alt="Fairy">
+    <div class="brand-txt">
+      <h1>Fai<b>ry</b></h1>
+      <span class="brand-en">Study Ops Console</span>
+    </div>
+  </div>
+  <div class="top-right">
+    <div class="sanity">
+      <span class="sanity-lbl">SANITY</span>
+      <div class="sanity-bar"><i id="sanityFill"></i></div>
+      <b id="sanityTxt">0/0</b>
+    </div>
+    <button class="btn btn-primary" id="btnImport">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      导入计划
+    </button>
+    <button class="btn" id="btnExportXlsx" title="导出 xlsx：每天一个 sheet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0 4-4m-4 4-4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      导出表格
+    </button>
+    <button class="btn" id="btnExport" title="导出本地备份 JSON">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v12m0 0 4-4m-4 4-4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+      备份
+    </button>
+    <button class="btn skin-trigger" id="btnSkin" title="外观 · 背景图与卡片不透明度">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18h1.6a1.9 1.9 0 0 0 0-3.8 1.9 1.9 0 0 1 0-3.8H17a4 4 0 0 0 4-4C21 5.4 16.9 3 12 3Z"/><circle cx="8" cy="9" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="6.8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="9" r="1.3" fill="currentColor" stroke="none"/></svg>
+      <span>外观</span>
+    </button>
+  </div>
+</header>
+
+<section class="now-strip" id="nowStrip">
+  <div class="ns-inner" id="nowStripInner">
+    <div class="ns-clock" id="nsClock">--:--:--</div>
+    <div class="ns-hint" id="nsHint">正在读取当前任务…</div>
+  </div>
+</section>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-head">
+      <span class="sec-no">01</span>
+      <span class="sec-txt"><span class="micro">Weeks</span><h2>周作战计划</h2></span>
+    </div>
+    <div class="week-list" id="weekList"></div>
+
+    <section class="panel" style="margin-top:4px">
+      <div class="block-h"><div class="ttl">导入计划文件</div><div class="sub">Import</div></div>
+      <div class="block-bd">
+        <div class="drop-zone" id="dropZone">
+          <div class="dz-title">点击选择或拖入 xlsx</div>
+          <div class="dz-hint">
+            支持一次选中多个文件；<b>每个文件内的全部周计划都会自动导入</b><br>
+            若与已有计划日期重合，将自动合并并保留你的打卡记录
+          </div>
+        </div>
+        <div class="exp-row" style="margin-top:12px">
+          <button class="btn btn-ghost" id="btnExportWeek" style="flex:1">导出本周表格</button>
+          <button class="btn btn-ghost" id="btnImpJson" style="flex:1">从备份恢复</button>
+        </div>
+        <button class="btn btn-prompt" id="btnCopyPrompt" style="margin-top:10px;width:100%">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          复制计划表提示词
+        </button>
+        <div class="exp-note">复制后粘贴给任意 AI，让它按 Fairy 的表格格式生成计划表</div>
+        <div class="exp-note">
+          导出的 xlsx 与原计划表同构：每天一个 sheet，勾选状态以 √ / □ 写回，可直接用 Excel 或 WPS 打开。
+        </div>
+        <div id="sourceList" style="margin-top:12px;border-top:1px dashed var(--line);padding-top:8px"></div>
+      </div>
+    </section>
+
+    <div class="side-foot">
+      <span>数据仅存储于本机浏览器</span>
+      <button class="link-btn" id="btnReset">清空数据</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="empty" id="emptyState" hidden>
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="4" y="12" width="56" height="42" rx="7" fill="#131317" stroke="#2b6be4" stroke-width="3"/>
+        <rect x="13" y="21" width="38" height="24" rx="4" fill="#ffe500"/>
+        <rect x="19" y="28" width="26" height="4" rx="2" fill="#0a0a0a"/>
+        <rect x="19" y="36" width="17" height="4" rx="2" fill="#0a0a0a" opacity=".55"/>
+      </svg>
+      <h2>尚未导入作战计划</h2>
+      <p>点击右上角「导入计划」，选择你的周计划 .xlsx 文件（含「本周计划」总表与每日日期子表），即可自动加载每日计划。多个文件可一次全选，重合部分会自动合并。</p>
+      <button class="btn btn-primary" data-act="import">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+        导入计划文件
+      </button>
+    </div>
+
+    <div id="console" hidden>
+      <!-- 底部 Tab 导航（官方语汇：纯白图标 + 下方小字） -->
+      <nav class="tabbar" id="tabbar">
+        <button class="tab on" data-tab="today">
+          <span class="tab-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h2M14 14h2M8 18h2"/></svg>
+          </span>
+          <span class="tab-tx">作战</span>
+        </button>
+        <button class="tab" data-tab="goals">
+          <span class="tab-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+          </span>
+          <span class="tab-tx">目标</span>
+        </button>
+        <button class="tab" data-tab="stats">
+          <span class="tab-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+          </span>
+          <span class="tab-tx">统计</span>
+        </button>
+        <button class="tab" data-tab="plan">
+          <span class="tab-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          </span>
+          <span class="tab-tx">计划</span>
+        </button>
+        <button class="tab" data-tab="pomo">
+          <span class="tab-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="7"/><path d="M12 7c-1.5-2-3-3-4.5-3M12 7c1.5-2 3-3 4.5-3M12 10.5V14l2.5 1.5"/></svg>
+          </span>
+          <span class="tab-tx">番茄</span>
+        </button>
+      </nav>
+
+      <!-- 作战日历：原来「今天要处理」的位置。收起是周历，展开是月历，可点日期切换 -->
+      <section class="panel cal-strip" id="calStrip"></section>
+
+      <section class="panel" id="statPanel" hidden></section>
+      <section class="panel planMgr" id="planPanel" hidden>
+        <div class="pm-head">
+          <button class="pm-back" data-act="home" title="返回主页">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <div class="pm-title"><h2>计划管理</h2><span id="planCount"></span></div>
+        </div>
+        <div class="pm-body">
+          <div class="pm-grid" id="planGrid"></div>
+          <div class="pm-pager" id="planPager" hidden></div>
+          <div class="pm-detail" id="planDetail" hidden></div>
+          <div class="pm-empty" id="planEmpty" hidden>还没有任何计划。回到主页点「导入计划」，或拖一个 .xlsx 进来。</div>
+        </div>
+      </section>
+      <section class="panel pomo" id="pomoPanel" hidden>
+        <div class="block-h"><div class="ttl">番茄钟</div><div class="sub" id="pomoSub">Focus Timer</div></div>
+        <div class="pomo-body">
+          <div class="pomo-left">
+            <div class="pomo-ring-wrap">
+              <svg class="pomo-ring" viewBox="0 0 200 200" aria-hidden="true">
+                <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12"/>
+                <circle id="pomoArc" cx="100" cy="100" r="88" fill="none" stroke="#ffe500" stroke-width="12"
+                        stroke-linecap="round" stroke-dasharray="553" stroke-dashoffset="0"
+                        transform="rotate(-90 100 100)"/>
+              </svg>
+              <div class="pomo-face">
+                <div class="pomo-phase" id="pomoPhase">学习</div>
+                <div class="pomo-time" id="pomoTime">25:00</div>
+                <div class="pomo-subject-tag" id="pomoSubjectTag">数学</div>
+              </div>
+            </div>
+            <div class="pomo-ops">
+              <button class="btn btn-primary" id="pomoStart" data-act="pomo-start">开始</button>
+              <button class="btn" id="pomoReset" data-act="pomo-reset">重置</button>
+              <button class="btn btn-ghost" id="pomoSkip" data-act="pomo-skip">跳过</button>
+            </div>
+          </div>
+          <div class="pomo-right">
+            <div class="pomo-block">
+              <div class="pomo-h">科目<span>点击切换当前科目</span></div>
+              <div class="pomo-subjects" id="pomoSubjects"></div>
+            </div>
+            <div class="pomo-block">
+              <div class="pomo-h">时长设置<span>改完立即生效</span></div>
+              <div class="pomo-set">
+                <label>学习<input type="number" id="pomoWorkMin" min="1" max="180" value="25" inputmode="numeric">分钟</label>
+                <label>休息<input type="number" id="pomoRestMin" min="1" max="60" value="5" inputmode="numeric">分钟</label>
+              </div>
+            </div>
+            <div class="pomo-block">
+              <div class="pomo-h">小组件<span>看课时也能盯着</span></div>
+              <div class="pomo-set">
+                <label class="chk-line"><input type="checkbox" id="pomoMiniOn"> 显示小组件</label>
+                <label class="chk-line"><input type="checkbox" id="pomoMiniPin"> 保持在顶部</label>
+                <div class="pomo-size" id="pomoMiniSize">
+                  <button data-act="mini-size" data-size="s">小</button>
+                  <button data-act="mini-size" data-size="m">中</button>
+                  <button data-act="mini-size" data-size="l">大</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pomo-stats">
+          <div class="pomo-chart" id="pomoChart"></div>
+          <div class="pomo-legend" id="pomoLegend"></div>
+        </div>
+      </section>
+
+      <section class="panel week-banner" id="weekBanner"></section>
+      <section class="panel date-nav" id="dateNav"></section>
+      <section class="stats-row" id="statsRow"></section>
+      <div class="cols">
+        <div class="col col-main">
+          <section class="panel" id="dayPanel"></section>
+          <section class="panel" id="overviewPanel"></section>
+        </div>
+        <div class="col col-side">
+          <section class="panel" id="goalPanel"></section>
+          <section class="panel" id="scorePanel"></section>
+          <section class="panel" id="infoPanel"></section>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="fileInput" accept=".xlsx,.xls" multiple hidden>
+<input type="file" id="jsonInput" accept=".json" hidden>
+<div class="pomo-mini" id="pomoMini" hidden>
+  <div class="mini-grab" id="miniGrab"></div>
+  <div class="mini-phase" id="miniPhase">学习</div>
+  <div class="mini-time" id="miniTime">25:00</div>
+  <div class="mini-subj" id="miniSubj">数学</div>
+  <div class="mini-ops">
+    <button data-act="mini-toggle" id="miniToggle" title="开始/暂停">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <button data-act="mini-close" title="关闭小组件">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+</div>
+<!-- 空状态专用：导入卡悬浮在右下角，不必滚到侧栏底部去找 -->
+<div class="float-import" id="floatImport" hidden>
+  <div class="fi-h"><b>导入计划文件</b><span>Import</span></div>
+  <div class="fi-bd">
+    <div class="drop-zone" id="dropZone2">
+      <div class="dz-title">点击选择或拖入 xlsx</div>
+      <div class="dz-hint">可多选；重合日期自动合并，打卡记录只增不减</div>
+    </div>
+    <button class="btn btn-prompt" id="btnCopyPrompt2" style="width:100%;margin-top:10px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      复制计划表提示词
+    </button>
+  </div>
+</div>
+
+<!-- 右侧常驻：一键进入番茄钟，不随页面滚动 -->
+<button class="pomo-fab" id="pomoFab" title="番茄钟 · 专注计时" aria-label="打开番茄钟">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="7"/><path d="M12 7c-1.5-2-3-3-4.5-3M12 7c1.5-2 3-3 4.5-3M12 10.5V14l2.5 1.5"/></svg>
+</button>
+
+<div class="toast" id="toast"></div>
+
+<!-- ===== 外观 / 皮肤抽屉 =====
+     发行版和本地版是同一份代码，唯一区别是有没有「内置皮肤」这张图：
+     构建时 __SKIN_DATA__ 为空串 → 按钮置灰、提示「此版本未内置皮肤」；
+     本地版内联官方素材后可直接一键套用，也可以换成自己的图。 -->
+<div class="skin-mask" id="skinMask"></div>
+<aside class="skin-drawer" id="skinDrawer" aria-hidden="true">
+  <div class="sd-head">
+    <div>
+      <h2>外观 <b>·</b> 皮肤</h2>
+      <span class="sd-en">SKIN &amp; TRANSPARENCY</span>
+    </div>
+    <button class="sd-close" id="skinClose" title="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="sd-body">
+    <div class="sd-block">
+      <div class="sd-h"><span>背景图<em>BACKGROUND</em></span></div>
+      <div class="sd-thumb" id="skinThumb" data-empty="1"></div>
+      <div class="sd-row">
+        <button class="btn btn-primary" id="skinPick">选择图片</button>
+        <button class="btn" id="skinBuiltin">内置皮肤</button>
+        <button class="btn btn-ghost" id="skinClear">清除</button>
+      </div>
+      <div class="sd-tip" id="skinTip">图片只保存在本机浏览器里，不会上传。建议横版、16:9 比例。</div>
+    </div>
+
+    <div class="sd-block">
+      <div class="sd-h"><span>背景亮度<em>BRIGHTNESS</em></span><b id="vBright">95%</b></div>
+      <input class="sd-range" type="range" id="rBright" min="20" max="140" step="1" value="95">
+      <div class="sd-h"><span>暗度遮罩<em>SHADE</em></span><b id="vVeil">55%</b></div>
+      <input class="sd-range" type="range" id="rVeil" min="0" max="95" step="1" value="55">
+      <div class="sd-h"><span>背景模糊<em>BLUR</em></span><b id="vBlur">0px</b></div>
+      <input class="sd-range" type="range" id="rBlur" min="0" max="24" step="1" value="0">
+    </div>
+
+    <div class="sd-block">
+      <div class="sd-h"><span>卡片不透明度<em>OPACITY</em></span><b id="vCard">90%</b></div>
+      <input class="sd-range" type="range" id="rCard" min="30" max="100" step="1" value="90">
+      <div class="sd-tip">调低后能透出背后的画面，配合更高的暗度遮罩更耐看。</div>
+    </div>
+
+    <button class="btn btn-ghost" id="skinReset" style="width:100%">恢复默认外观</button>
+    <div class="sd-foot" id="skinFoot"></div>
+  </div>
+</aside>
+<input type="file" id="skinInput" accept="image/*" hidden>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffe500"/><stop offset="1" stop-color="#e6cc00"/>
+  </linearGradient></defs>
+</svg>
+
+<script>
+/*__OPS__*/
+</script>
+<script>
+/* 计划表提示词原文，由构建脚本从「交付/计划表导入格式_提示词.md」读入并转成 JSON 字符串 */
+window.FAIRY_PROMPT = __PROMPT_JSON__;
+/* 内置背景（原创暮色浮空城）：发行版与本地版都带，作为「没有任何皮肤图」时的默认底 */
+window.FAIRY_BG_DEFAULT = __BG_DATA__;
+/* 内置皮肤：只有「本地版」构建会注入，发行版为空串。
+   为空时外观抽屉里的「内置皮肤」按钮置灰，但背景图上传 / 不透明度调节照常可用。 */
+window.FAIRY_SKIN_B64 = __SKIN_DATA__;
+/* 官方邦布贴图（15 只一套，米哈游官方美术的邦布设定图）。
+   「每日一览」的每个日期格用一只不同的，切到下一周自动换一批。
+   发行版也带：它是 UI 素材不是皮肤，而且官方形象才是这个「绝区零味」的本体。 */
+window.FAIRY_BANGBOOS = __BANGBOO_DATA__;
+</script>
+<script>
+/*__APP__*/
+</script>
+</body>
+</html>

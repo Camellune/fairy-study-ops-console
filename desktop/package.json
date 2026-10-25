@@ -1,0 +1,13 @@
+{
+  "name": "fairy-desktop",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^33.4.11",
+    "rcedit": "^1.1.1"
+  },
+  "description": "Fairy 桌面版打包工程"
+}

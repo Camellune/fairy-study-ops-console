@@ -1,0 +1,13 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+Thumbs.db
+
+# 第三方美术素材：来自官方公开渠道，仅供个人学习使用，不随仓库分发
+assets/skin/
+assets/bangboo/
+
+# 本地发布产物
+发布/
